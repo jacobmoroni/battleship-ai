@@ -2,17 +2,18 @@
 Main run file for DQN
 """
 import sys
-from time import time
+from time import time, sleep
 from collections import deque
-import gym
+import curses
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from dqn_lunar_lander import DQNAgent, HyperParameters
+from dqn_battleship import DQNAgent, HyperParameters
+from battleship_rl_wrapper import BattleshipEnvironment
 
-# HyperParameters and global variables
+# HyperParameters
 
 BUFFER_SIZE = int(1e5)  # Replay memory size
 BATCH_SIZE = 64         # Number of experiences to sample from memory
@@ -20,10 +21,8 @@ GAMMA = 0.99            # Discount factor
 TAU = 1e-3              # Soft update parameter for updating fixed q network
 LR = 1e-4               # Q Network learning rate
 UPDATE_EVERY = 4        # How often to update Q network
-MAX_EPISODES = 2000  # Max number of episodes to play
-MAX_STEPS = 1000     # Max steps allowed in a single episode/play
-ENV_SOLVED = 200     # MAX score at which we consider environment to be solved
-PRINT_EVERY = 100    # How often to print the progress
+MAX_EPISODES = 2000     # Max number of episodes to play
+MAX_STEPS = 100         # Max number of steps that can be taken in an episode
 
 # Epsilon schedule
 EPS_START = 1.0      # Default/starting value of eps
@@ -38,11 +37,12 @@ class RLTrainer:
 
     def __init__(self, hyperparams):
         self.hp = hyperparams
-        self.env = gym.make('LunarLander-v2')
-        self.state_size = self.env.observation_space.shape[0]
-        self.action_size = self.env.action_space.n
+        self.env = BattleshipEnvironment()
+        self.state_size = self.env.state.shape[0]
+        self.action_size = self.env.num_actions
         self.dqn_agent = DQNAgent(self.state_size, self.action_size, self.hp)
         self.env.reset(seed=0)
+        self.render_output = None
 
         self.scores = []
         # Maintain a list of last 100 scores
@@ -62,35 +62,50 @@ class RLTrainer:
         plt.ylabel('score')
         plt.show()
 
+    def renderState(self, state):
+        """
+        Renders a single state
+        """
+        board_size_dim = self.env.board_size
+        board_size_full = board_size_dim**2
+        board = state[:board_size_full].reshape(board_size_dim, board_size_dim)
+        self.render_output.addstr(0, 0, str(board))
+        self.render_output.addstr(11, 0, "Ship Status: " + str(state[board_size_full:]))
+        self.render_output.refresh()
+
     def renderRun(self):
         """
         Renders a run with the current model
         """
-        self.env = gym.make('LunarLander-v2')
+        self.render_output = curses.initscr()
+        curses.noecho()
+        curses.cbreak()
+
+        self.env = BattleshipEnvironment()
         score = 0
         state = self.env.reset()
         while True:
-            self.env.render()
             action = self.dqn_agent.act(state)
-            next_state, reward, done, info = self.env.step(action)
+            next_state, reward, done, _ = self.env.step(action)
             self.dqn_agent.step(state, action, reward, next_state, done)
             state = next_state
             score += reward
+            try:
+                self.renderState(state)
+                sleep(0.5)
+            finally:
+                curses.echo()
+                curses.nocbreak()
+                curses.endwin()
+
             if done:
                 break
-        print(f"score: {score}")
 
     def loadAgent(self, file):
         """
         Load anent from file
         """
         self.dqn_agent.load(file)
-
-    def closeRender(self):
-        """
-        close active render
-        """
-        self.env.close()
 
     def runLoop(self, num_episodes):
         """
@@ -105,7 +120,7 @@ class RLTrainer:
             score = 0
             for _ in range(self.hp.max_steps):
                 action = self.dqn_agent.act(state, self.eps)
-                next_state, reward, done, info = self.env.step(action)
+                next_state, reward, done, _ = self.env.step(action)
                 self.dqn_agent.step(state, action, reward, next_state, done)
                 state = next_state
                 score += reward
@@ -113,16 +128,12 @@ class RLTrainer:
                     break
 
                 self.eps = max(self.eps * self.hp.eps_decay, self.hp.eps_min)
-                if episode % PRINT_EVERY == 0:
-                    mean_score = np.mean(self.scores_window)
-                    res = f'\r Progress {episode}/{MAX_EPISODES}, average score:{mean_score:.2f}'
-                    print(res, end="")
-                if score >= ENV_SOLVED:
-                    mean_score = np.mean(self.scores_window)
-                    print(f'\rEnvironment solved in {episode} episodes, average score: {mean_score:.2f}', end="")
-                    sys.stdout.flush()
-                    self.dqn_agent.checkpoint('solved_200.pth')
-                    break
+                # if score >= ENV_SOLVED:
+                #     mean_score = np.mean(self.scores_window)
+                #     print(f'\rEnvironment solved in {episode} episodes, average score: {mean_score:.2f}', end="")
+                #     sys.stdout.flush()
+                #     self.dqn_agent.checkpoint('solved_200.pth')
+                #     break
 
             self.scores_window.append(score)
             self.scores.append(score)
@@ -143,7 +154,7 @@ if __name__ == '__main__':
     hp.q_update_freq = UPDATE_EVERY
     hp.max_episodes = MAX_EPISODES
     hp.max_steps = MAX_STEPS
-    hp.env_solved = ENV_SOLVED
+    # hp.env_solved = ENV_SOLVED
     hp.eps_start = EPS_START
     hp.eps_decay = EPS_DECAY
     hp.eps_min = EPS_MIN

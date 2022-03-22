@@ -2,8 +2,9 @@
 Battleship game class
 """
 from enum import Enum
-import numpy as np
 from random import randint, choice, seed
+import numpy as np
+
 
 class Orientation(Enum):
     """
@@ -22,12 +23,12 @@ class BattleshipBoard:
         self.shots_size = grid_size
         self.shots = np.zeros(shape=(grid_size, grid_size), dtype=np.int8)
         self.ships = np.zeros(shape=(grid_size, grid_size), dtype=np.int8)
-        self.max_hits_per_ship = np.array([5,4,3,3,2])
-        self.hits_per_ship = np.array([0,0,0,0,0])
-        self.active_ships = np.array([True,True,True,True,True])
+        self.max_hits_per_ship = np.array([5, 4, 3, 3, 2])
+        self.hits_per_ship = np.array([0, 0, 0, 0, 0])
+        self.active_ships = np.array([True, True, True, True, True])
         seed(random_seed)
         self.placeShips()
-            
+
     def fire(self, row, col):
         """
         fire at the desired row and column
@@ -35,23 +36,22 @@ class BattleshipBoard:
         Returns:
             (new fire, hit ship, sunk ship)
         """
-        hit = False
-        sunk = False 
-        if self.shots[row,col] != 0:
+        sunk = False
+        if self.shots[row, col] != 0:
             return False, False, False
-        guess = self.ships[row,col]
+        guess = self.ships[row, col]
         if guess == 0:
-            self.shots[row,col] = -1
+            self.shots[row, col] = -1
             return True, False, False
         else:
-            self.shots[row,col] = 1
+            self.shots[row, col] = 1
             print(guess)
             self.hits_per_ship[guess-1] += 1
             if self.hits_per_ship[guess-1] == self.max_hits_per_ship[guess-1]:
                 self.active_ships[guess-1] = False
                 sunk = True
-            return True,True, sunk
-   
+            return True, True, sunk
+
     def printShots(self):
         """
         Prints the current state of the board
@@ -59,6 +59,9 @@ class BattleshipBoard:
         print(self.shots)
 
     def printShips(self):
+        """
+        print the map with the ships in it
+        """
         print(self.ships)
 
     def placeShip(self, row, col, orientation, size, idx):
@@ -72,9 +75,12 @@ class BattleshipBoard:
         if orientation == Orientation.HORIZONTAL:
             cv = 1
         idx = size-1
-        if 0 <= row < self.shots.shape[0] and 0 <= col < self.shots.shape[1] and 0 <= row + rv*idx < self.shots.shape[0] and 0 <= col + cv*idx < self.shots.shape[1]:
-            if self.ships[row:row+rv*idx,col:col+cv*idx].sum() == 0:
-                self.ships[row:row+rv*idx+1,col:col+cv*idx+1] = idx
+        if (0 <= row < self.shots.shape[0] and
+                0 <= col < self.shots.shape[1] and
+                0 <= row + rv*idx < self.shots.shape[0] and
+                0 <= col + cv*idx < self.shots.shape[1]):
+            if self.ships[row:row+rv*idx, col:col+cv*idx].sum() == 0:
+                self.ships[row:row+rv*idx+1, col:col+cv*idx+1] = idx
                 return True
         return False
 
@@ -85,28 +91,35 @@ class BattleshipBoard:
         return self.active_ships
 
     def placeShips(self):
+        """
+        Randomly places all ships on the map
+        """
         for idx in range(self.max_hits_per_ship.shape[0]):
-            row = randint(0,self.shots_size-1)
-            col = randint(0,self.shots_size-1)
+            row = randint(0, self.shots_size-1)
+            col = randint(0, self.shots_size-1)
             size = self.max_hits_per_ship[idx]
             orientation = choice(list(Orientation))
             while not self.placeShip(row, col, orientation, size, idx):
-                row = randint(0,self.shots_size-1)
-                col = randint(0,self.shots_size-1)
+                row = randint(0, self.shots_size-1)
+                col = randint(0, self.shots_size-1)
                 orientation = choice(list(Orientation))
 
     def reset(self, random_seed=None):
+        """
+        resets the game
+        """
         seed(random_seed)
-        self.shots[:,:] = 0
-        self.ships[:,:] = 0
+        self.shots[:, :] = 0
+        self.ships[:, :] = 0
         self.hits_per_ship[:] = 0
         self.placeShips()
+
 
 def main():
     """
     Main function when script is run
     """
-    b = BattleshipBoard(10,10)
+    b = BattleshipBoard(10, 10)
     b.printShips()
     b.fire(5, 5)
     b.fire(3, 3)
@@ -115,6 +128,7 @@ def main():
     b.reset(10)
     b.printShips()
     b.printShots()
+
 
 if __name__ == "__main__":
     main()
