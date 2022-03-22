@@ -25,6 +25,7 @@ class BattleshipBoard:
         self.grid_size = grid_size
         self.grid = np.zeros(shape=(grid_size, grid_size))
         self.ships = []
+        self.ships_active = []
         for ship in ships:
             self.placeShip(ship[0], ship[1], ship[2], ship[3])
 
@@ -35,26 +36,28 @@ class BattleshipBoard:
         Returns:
             True if you have not fired on that spot already, else False
         """
+        hit = False
         if self.grid[row, col] == 0:
-            if self.isHit(row, col):
+            hit = self.isHit(row, col)
+            if hit:
                 self.grid[row, col] = 1
             else:
                 self.grid[row, col] = -1
-            return True
-        print(f"You've already fired at ({row},{col})")
-        return False
+            return True, hit
+        print("You've already fired at ({row},{col})")
+        return False, hit
 
     def isHit(self, row, col):
         """
         Returns True if specified row and col is a hit
         """
-        for ship in self.ships:
-            if (row, col) in ship:
-                ship.remove((row, col))
+        for idx in range(len(self.ships)):
+            if (row, col) in self.ships[idx]:
+                self.ships[idx].remove((row, col))
                 if len(ship) > 0:
                     print("You hit my battleship")
                 else:
-                    self.ships.remove(ship)
+                    self.active_ships[idx] = False
                     print("You sunk my battleship!")
                 return True
         print("You missed!")
@@ -88,15 +91,17 @@ class BattleshipBoard:
                         print(f"Can't place a ship at {row},{col} facing {orientation}")
                         return False
             self.ships.append(ship)
+            self.ships_active.append(True)
             return True
         print("Can't place a ship here")
         return False
 
+# return the list of ships still active
     def activeShips(self):
         """
         returns number of active ships left
         """
-        return len(self.ships)
+        return self.active_ships
 
     def printShips(self):
         """
@@ -107,7 +112,16 @@ class BattleshipBoard:
             for point in ship:
                 ship_board[point[0], point[1]] = 1
         print(ship_board)
-
+    
+    def placeShips(self, ship_sizes):
+        for size in ship_sizes:
+            row = randint(0,self.grid_size)
+            col = randint(0,self.grid_size)
+            orientation = randint(0,4)
+            while not self.placeShip(row, col, orientation, size):
+                row = randint(0,self.grid_size)
+                col = randint(0,self.grid_size)
+                orientation = randint(0,4)
 
 def main():
     """
