@@ -26,7 +26,8 @@ class BattleshipBoard:
         self.max_hits_per_ship = np.array([5, 4, 3, 3, 2])
         self.hits_per_ship = np.array([0, 0, 0, 0, 0])
         self.active_ships = np.array([True, True, True, True, True])
-        seed(random_seed)
+        if random_seed is not None:
+            seed(random_seed)
         self.placeShips()
 
     def fire(self, row, col):
@@ -78,7 +79,7 @@ class BattleshipBoard:
                 0 <= col < self.shots.shape[1] and
                 0 <= row + rv*idx < self.shots.shape[0] and
                 0 <= col + cv*idx < self.shots.shape[1]):
-            if self.ships[row:row+rv*idx, col:col+cv*idx].sum() == 0:
+            if self.ships[row:row+rv*idx+1, col:col+cv*idx+1].sum() == 0:
                 self.ships[row:row+rv*idx+1, col:col+cv*idx+1] = ship_num
                 return True
         return False
@@ -107,10 +108,12 @@ class BattleshipBoard:
         """
         resets the game
         """
-        seed(random_seed)
+        if random_seed is not None:
+            seed(random_seed)
         self.shots[:, :] = 0
         self.ships[:, :] = 0
         self.hits_per_ship[:] = 0
+        self.active_ships[:] = np.array([True, True, True, True, True])
         self.placeShips()
 
 
