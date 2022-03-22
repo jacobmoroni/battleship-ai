@@ -45,7 +45,6 @@ class BattleshipBoard:
             return True, False, False
         else:
             self.shots[row, col] = 1
-            print(guess)
             self.hits_per_ship[guess-1] += 1
             if self.hits_per_ship[guess-1] == self.max_hits_per_ship[guess-1]:
                 self.active_ships[guess-1] = False
@@ -64,7 +63,7 @@ class BattleshipBoard:
         """
         print(self.ships)
 
-    def placeShip(self, row, col, orientation, size, idx):
+    def placeShip(self, row, col, orientation, size, ship_num):
         """
         Places ship of specified size onto map at specified row, column, and orientation
         """
@@ -80,7 +79,7 @@ class BattleshipBoard:
                 0 <= row + rv*idx < self.shots.shape[0] and
                 0 <= col + cv*idx < self.shots.shape[1]):
             if self.ships[row:row+rv*idx, col:col+cv*idx].sum() == 0:
-                self.ships[row:row+rv*idx+1, col:col+cv*idx+1] = idx
+                self.ships[row:row+rv*idx+1, col:col+cv*idx+1] = ship_num
                 return True
         return False
 
@@ -99,7 +98,7 @@ class BattleshipBoard:
             col = randint(0, self.shots_size-1)
             size = self.max_hits_per_ship[idx]
             orientation = choice(list(Orientation))
-            while not self.placeShip(row, col, orientation, size, idx):
+            while not self.placeShip(row, col, orientation, size, idx+1):
                 row = randint(0, self.shots_size-1)
                 col = randint(0, self.shots_size-1)
                 orientation = choice(list(Orientation))
