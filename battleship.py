@@ -22,10 +22,11 @@ class BattleshipBoard:
         self.shots_size = grid_size
         self.shots = np.zeros(shape=(grid_size, grid_size), dtype=np.int8)
         self.ships = np.zeros(shape=(grid_size, grid_size), dtype=np.int8)
-        self.max_hits_per_ship = []
-        self.hits_per_ship = []
-        self.active_ships = []
+        self.max_hits_per_ship = np.array([5,4,3,3,2])
+        self.hits_per_ship = np.array([0,0,0,0,0])
+        self.active_ships = np.array([True,True,True,True,True])
         seed(random_seed)
+        self.placeShips()
             
     def fire(self, row, col):
         """
@@ -60,7 +61,7 @@ class BattleshipBoard:
     def printShips(self):
         print(self.ships)
 
-    def placeShip(self, row, col, orientation, size):
+    def placeShip(self, row, col, orientation, size, idx):
         """
         Places ship of specified size onto map at specified row, column, and orientation
         """
@@ -73,10 +74,7 @@ class BattleshipBoard:
         idx = size-1
         if 0 <= row < self.shots.shape[0] and 0 <= col < self.shots.shape[1] and 0 <= row + rv*idx < self.shots.shape[0] and 0 <= col + cv*idx < self.shots.shape[1]:
             if self.ships[row:row+rv*idx,col:col+cv*idx].sum() == 0:
-                self.ships[row:row+rv*idx+1,col:col+cv*idx+1] = len(self.max_hits_per_ship)+1
-                self.max_hits_per_ship.append(size)
-                self.hits_per_ship.append(0)
-                self.active_ships.append(True)
+                self.ships[row:row+rv*idx+1,col:col+cv*idx+1] = idx
                 return True
         return False
 
@@ -86,31 +84,37 @@ class BattleshipBoard:
         """
         return self.active_ships
 
-    def placeShips(self, ship_sizes):
-        for size in ship_sizes:
+    def placeShips(self):
+        for idx in range(self.max_hits_per_ship.shape[0]):
             row = randint(0,self.shots_size-1)
             col = randint(0,self.shots_size-1)
+            size = self.max_hits_per_ship[idx]
             orientation = choice(list(Orientation))
-            while not self.placeShip(row, col, orientation, size):
+            while not self.placeShip(row, col, orientation, size, idx):
                 row = randint(0,self.shots_size-1)
                 col = randint(0,self.shots_size-1)
                 orientation = choice(list(Orientation))
 
     def reset(self, random_seed=None):
         seed(random_seed)
-        self.placeShips(self.max_hits_per_ship)
+        self.shots[:,:] = 0
+        self.ships[:,:] = 0
+        self.hits_per_ship[:] = 0
+        self.placeShips()
 
 def main():
     """
     Main function when script is run
     """
-    b = BattleshipBoard(10)
-    b.placeShips([5,4,3,3,2])
+    b = BattleshipBoard(10,10)
+    b.printShips()
     b.fire(5, 5)
     b.fire(3, 3)
     b.printShips()
     b.printShots()
-
+    b.reset(10)
+    b.printShips()
+    b.printShots()
 
 if __name__ == "__main__":
     main()
