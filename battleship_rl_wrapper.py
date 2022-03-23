@@ -1,6 +1,7 @@
 """
 Battleship Reinforcement Learning wrapper
 """
+from random import choice
 import numpy as np
 from battleship import BattleshipBoard
 
@@ -14,18 +15,23 @@ class BattleshipEnvironment:
         self.board_size = 10
         self.consecutive_hit_boost = 0
         self.num_ships = 5
-        self.battleship = BattleshipBoard(self.board_size, [])
-        self.state = np.zeros(self.board_size**2 + self.num_ships)
+        self.battleship = BattleshipBoard(self.board_size, 0)
         self.num_actions = self.board_size**2
         self.ship_states = self.battleship.active_ships
+        self.state_size = self.board_size**2 + self.num_ships
+        self.turns_taken = 0
 
-    def reset(self, seed=-1):
+        self.legal_actions = list(range(self.board_size**2))
+
+    def reset(self, seed=None):
         """
         resets the environment with an optional seed value
         """
         self.battleship.reset(seed)
-        self.state = np.zeros(self.board_size**2 + self.num_ships)
-        return self.state
+        self.legal_actions = list(range(self.board_size**2))
+        state = np.zeros(self.board_size**2 + self.num_ships)
+        self.turns_taken = 0
+        return state
 
     def actionToCoord(self, action):
         """
@@ -48,9 +54,9 @@ class BattleshipEnvironment:
             reward += 10
             if self.consecutive_hit_boost > 0:
                 reward += self.consecutive_hit_boost
-            self.consecutive_hit_boost = 4
+            self.consecutive_hit_boost = 10
         else:
-            self.consecutive_hit_boost -= 1
+            self.consecutive_hit_boost //= 2
             reward -= 1
         return reward
 
@@ -59,9 +65,17 @@ class BattleshipEnvironment:
         Step through the game one step with an action
         """
         row, col = self.actionToCoord(action)
+        self.turns_taken += 1
+        bad_guess_penalty = 0
         valid, hit, sunk = self.battleship.fire(row, col)
-        reward = self.calculateReward(valid, hit, sunk)
-        next_state = np.hstack((self.battleship.grid.flatten(), self.battleship.active_ships))
-        done = np.sum(self.battleship.activeShips) == 0
+        while not valid:
+            action = choice(self.legal_actions)
+            row, col = self.actionToCoord(action)
+            valid, hit, sunk = self.battleship.fire(row, col)
+            bad_guess_penalty += 5
+        reward = self.calculateReward(valid, hit, sunk) - bad_guess_penalty
+        self.legal_actions.remove(action)
+        next_state = np.hstack((self.battleship.shots.flatten(), self.battleship.active_ships))
+        done = np.sum(self.battleship.active_ships) == 0
         info = ""
         return next_state, reward, done, info

@@ -79,8 +79,8 @@ class BattleshipBoard:
                 0 <= col < self.shots.shape[1] and
                 0 <= row + rv*idx < self.shots.shape[0] and
                 0 <= col + cv*idx < self.shots.shape[1]):
-            if self.ships[row:row+rv*size, col:col+cv*size].sum() == 0:
-                self.ships[row:row+rv*size, col:col+cv*size] = ship_num
+            if self.ships[row:row+rv*idx+1, col:col+cv*idx+1].sum() == 0:
+                self.ships[row:row+rv*idx+1, col:col+cv*idx+1] = ship_num
                 return True
         return False
 
@@ -108,8 +108,7 @@ class BattleshipBoard:
         """
         resets the game
         """
-        if random_seed is not None:
-            seed(random_seed)
+        # seed(random_seed)
         self.shots[:, :] = 0
         self.ships[:, :] = 0
         self.hits_per_ship[:] = 0

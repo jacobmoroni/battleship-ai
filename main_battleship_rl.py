@@ -1,7 +1,7 @@
 """
 Main run file for DQN
 """
-import sys
+# import sys
 from time import time, sleep
 from collections import deque
 import curses
@@ -38,7 +38,7 @@ class RLTrainer:
     def __init__(self, hyperparams):
         self.hp = hyperparams
         self.env = BattleshipEnvironment()
-        self.state_size = self.env.state.shape[0]
+        self.state_size = self.env.state_size
         self.action_size = self.env.num_actions
         self.dqn_agent = DQNAgent(self.state_size, self.action_size, self.hp)
         self.env.reset(seed=0)
@@ -62,7 +62,7 @@ class RLTrainer:
         plt.ylabel('score')
         plt.show()
 
-    def renderState(self, state):
+    def renderState(self, state, action, reward, score):
         """
         Renders a single state
         """
@@ -70,7 +70,8 @@ class RLTrainer:
         board_size_full = board_size_dim**2
         board = state[:board_size_full].reshape(board_size_dim, board_size_dim)
         self.render_output.addstr(0, 0, str(board))
-        self.render_output.addstr(11, 0, "Ship Status: " + str(state[board_size_full:]))
+        self.render_output.addstr(
+            11, 0, f"Ship Status: {str(state[board_size_full:])}, action: {action}, reward: {reward}, score: {score}")
         self.render_output.refresh()
 
     def renderRun(self):
@@ -80,18 +81,31 @@ class RLTrainer:
         self.render_output = curses.initscr()
         curses.noecho()
         curses.cbreak()
+        print("\n\n\n\n\n\n\n\n\n\n\n\n")
 
-        self.env = BattleshipEnvironment()
+        # self.env = BattleshipEnvironment()
         score = 0
         state = self.env.reset()
+        data = {"action": [],
+                "reward": [],
+                "score": [],
+                "ship_state": []}
+        actions = np.ones(self.action_size)
+        # for i in range(100):
         while True:
-            action = self.dqn_agent.act(state)
+            # action = i  # self.dqn_agent.act(state)
+            action = self.dqn_agent.act(state, actions=actions)
+            actions[action] = 0
             next_state, reward, done, _ = self.env.step(action)
             self.dqn_agent.step(state, action, reward, next_state, done)
             state = next_state
             score += reward
+            data['action'].append(action)
+            data['reward'].append(reward)
+            data['score'].append(score)
+            data['ship_state'].append(state[100:])
             try:
-                self.renderState(state)
+                self.renderState(state, action, reward, score)
                 sleep(0.5)
             finally:
                 curses.echo()
@@ -100,6 +114,7 @@ class RLTrainer:
 
             if done:
                 break
+        return data
 
     def loadAgent(self, file):
         """
@@ -118,8 +133,10 @@ class RLTrainer:
         for episode in range(1, num_episodes + 1):
             state = self.env.reset()
             score = 0
+            actions = np.ones(self.action_size)
             for _ in range(self.hp.max_steps):
-                action = self.dqn_agent.act(state, self.eps)
+                action = self.dqn_agent.act(state, self.eps, actions)
+                actions[action] = 0
                 next_state, reward, done, _ = self.env.step(action)
                 self.dqn_agent.step(state, action, reward, next_state, done)
                 state = next_state
@@ -137,7 +154,8 @@ class RLTrainer:
 
             self.scores_window.append(score)
             self.scores.append(score)
-            loop.set_description(f'episode:{episode}, avg_reward:{np.mean(self.scores_window):.5f}')
+            loop.set_description(
+                f'episode:{episode}, avg_score:{np.mean(self.scores_window):.5f}, last_score: {score}, turns: {self.env.turns_taken}')
             loop.update(1)
 
         end = time()

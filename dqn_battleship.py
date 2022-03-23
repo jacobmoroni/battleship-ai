@@ -52,9 +52,9 @@ class QNetwork(nn.Module):
         """
         super().__init__()
         self.seed = torch.manual_seed(seed)
-        self.fc1 = nn.Linear(state_size, 32)
-        self.fc2 = nn.Linear(32, 64)
-        self.fc3 = nn.Linear(64, action_size)
+        self.fc1 = nn.Linear(state_size, 128)
+        self.fc2 = nn.Linear(128, 256)
+        self.fc3 = nn.Linear(256, action_size)
 
     def forward(self, x):
         """Forward pass"""
@@ -211,7 +211,7 @@ class DQNAgent:
             target_parameters.data.copy_(self.hp.tau * source_parameters.data +
                                          (1.0 - self.hp.tau) * target_parameters.data)
 
-    def act(self, state, eps=0.0):
+    def act(self, state, eps=0.0, actions=None):
         """
         Choose the action
 
@@ -229,6 +229,7 @@ class DQNAgent:
             self.q_network.eval()
             with torch.no_grad():
                 action_values = self.q_network.forward(state)
+                # action_values *= torch.from_numpy(actions).float().to(self.device)
             # Back to training mode
             self.q_network.train()
             action = np.argmax(action_values.cpu().data.numpy())
