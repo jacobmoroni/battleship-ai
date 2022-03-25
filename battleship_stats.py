@@ -153,6 +153,37 @@ def runMap(seed=None, boardsize=10, ships=[5,4,3,3,2]):
     print(count)
     return count
 
+import matplotlib.pyplot as plt
+from time import sleep
+def displayMap(seed=None, boardsize=10, ships=[5,4,3,3,2]):
+    np.set_printoptions(precision=2)
+    b = BattleshipBoard(boardsize,seed)
+    grida = np.ones(shape=(boardsize,boardsize))*2
+    probs = []
+    sunk_prob = np.zeros_like(ships)
+    count = 0
+    last_active = np.array(b.activeShips())
+    plt.ion()
+    plt.show()
+    while b.activeShips().sum() > 0:
+        print(count)
+        grid = b.getShots()
+        active = b.activeShips()
+        active_ships = [ships[idx] for idx in range(len(ships)) if active[idx]]
+        heat=calcheatmap(grida,active_ships)
+        guess=np.unravel_index(np.argmax(heat,axis=None),heat.shape)
+        count += 1
+        valid, hit, sunk = b.fire(guess[0],guess[1])
+        prob = np.array(b.activeShips())^last_active
+        last_active = np.array(b.activeShips())
+        updateGrid(grida, guess, hit, sunk, prob)
+        plt.imshow(heat, cmap='hot', interpolation='nearest')
+        #plt.show(block=False)
+        plt.pause(.1)
+        #sleep(.5)
+    return count
+
+
 if  __name__ == "__main__":
     #b = BattleshipBoard(10,10)
     #b.printShips()
@@ -165,7 +196,10 @@ if  __name__ == "__main__":
     #    last_active = np.array(b.activeShips())
     #    updateGrid(grid, guess, hit, sunk, prob)
     #print(grid) 
-    counts = []
-    for idx in range(500):
-        counts.append(runMap())
-    print("Avg score: ", np.average(counts))
+    
+    displayMap(seed=10)
+
+    #counts = []
+    #for idx in range(500):
+    #    counts.append(runMap())
+    #print("Avg score: ", np.average(counts))
