@@ -8,6 +8,7 @@ import numpy as np
 import torch.nn as nn
 from torch.nn import functional as F
 from torch import optim
+from ipdb import set_trace
 
 
 class HyperParameters():
@@ -35,72 +36,39 @@ class HyperParameters():
         self.seed = 0
 
 
-# class ConvQNetwork(nn.Module):
-#     """
-#     DQN that uses 2d convolutions
-#     """
-
-#     def __init__(self, h, w, outputs):
-#         super(ConvQNetwork, self).__init__()
-#         self.conv1 = nn.Conv2d(3, 16, kernel_size=5, stride=2)
-#         self.bn1 = nn.BatchNorm2d(16)
-#         self.conv2 = nn.Conv2d(16, 32, kernel_size=5, stride=2)
-#         self.bn2 = nn.BatchNorm2d(32)
-#         self.conv3 = nn.Conv2d(32, 32, kernel_size=5, stride=2)
-#         self.bn3 = nn.BatchNorm2d(32)
-
-#         def conv2dSizeOut(size, kernel_size=5, stride=2):
-#             return (size - (kernel_size - 1) - 1) // stride + 1
-#         convw = conv2dSizeOut(conv2dSizeOut(conv2dSizeOut(w)))
-#         convh = conv2dSizeOut(conv2dSizeOut(conv2dSizeOut(h)))
-#         linear_input_size = convw * convh * 32
-#         self.head = nn.Linear(linear_input_size, outputs)
-
-#     def forward(self, x):
-#         """
-#         Forward step
-#         """
-#         x = x.to(self.device)
-#         x = F.relu(self.bn1(self.conv1(x)))
-#         x = F.relu(self.bn2(self.conv2(x)))
-#         x = F.relu(self.bn3(self.conv3(x)))
-#         return self.head(x.view(x.size(0), -1))
-
-
-class QNetwork(nn.Module):
+class ConvQNetwork(nn.Module):
     """
-    Fully connected Q Network
+    DQN that uses 2d convolutions
     """
 
-    def __init__(self, state_size, action_size, seed):
-        """
-        Build a fully connected neural network
+    def __init__(self, h, w, outputs, seed=None):
+        super(ConvQNetwork, self).__init__()
+        if seed is not None:
+            self.seed = torch.manual_seed(seed)
+        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        self.conv1 = nn.Conv2d(1, 16, kernel_size=3, stride=1)
+        self.bn1 = nn.BatchNorm2d(16)
+        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, stride=1)
+        self.bn2 = nn.BatchNorm2d(32)
+        self.conv3 = nn.Conv2d(32, 32, kernel_size=3, stride=1)
+        self.bn3 = nn.BatchNorm2d(32)
 
-        Parameters
-        ----------
-        state_size (int): State dimension
-        action_size (int): Action dimension
-        seed (int): random seed
-        """
-        super().__init__()
-        self.seed = torch.manual_seed(seed)
-        self.fc1 = nn.Linear(state_size, 128)
-        self.fc2 = nn.Linear(128, 256)
-        self.fc3 = nn.Linear(256, 512)
-        self.fc4 = nn.Linear(512, 256)
-        self.fc5 = nn.Linear(256, 128)
-        self.fc6 = nn.Linear(128, action_size)
+        def conv2dSizeOut(size, kernel_size=3, stride=1):
+            return (size - (kernel_size - 1) - 1) // stride + 1
+        convw = conv2dSizeOut(conv2dSizeOut(conv2dSizeOut(w)))
+        convh = conv2dSizeOut(conv2dSizeOut(conv2dSizeOut(h)))
+        linear_input_size = convw * convh * 32
+        self.head = nn.Linear(linear_input_size, outputs)
 
     def forward(self, x):
-        """Forward pass"""
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        # x = F.relu(self.fc3(x))
-        # x = F.relu(self.fc4(x))
-        x = F.relu(self.fc5(x))
-        x = self.fc6(x)
-
-        return x
+        """
+        Forward step
+        """
+        x = x.to(self.device)
+        x = F.relu(self.bn1(self.conv1(x)))
+        x = F.relu(self.bn2(self.conv2(x)))
+        x = F.relu(self.bn3(self.conv3(x)))
+        return self.head(x.view(x.size(0), -1))
 
 
 class ReplayBuffer:
@@ -118,7 +86,6 @@ class ReplayBuffer:
 
         self.hp = hyperparams
         random.seed(self.hp.seed)
-        # self.seed = random.seed(seed)
         self.memory = deque(maxlen=self.hp.buffer_size)
         self.experience = namedtuple("Experience", field_names=["state", "action", "reward", "next_state", "done"])
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -135,22 +102,22 @@ class ReplayBuffer:
         experiences = random.sample(self.memory, k=self.hp.batch_size)
 
         # Convert to torch tensors
-        states = torch.from_numpy(np.vstack([experience.state
+        states = torch.from_numpy(np.stack([experience.state
+                                            for experience in experiences
+                                            if experience is not None])).float().to(self.device)
+        actions = torch.from_numpy(np.stack([experience.action
+                                             for experience in experiences
+                                             if experience is not None])).long().to(self.device)
+        rewards = torch.from_numpy(np.stack([experience.reward
                                              for experience in experiences
                                              if experience is not None])).float().to(self.device)
-        actions = torch.from_numpy(np.vstack([experience.action
-                                              for experience in experiences
-                                              if experience is not None])).long().to(self.device)
-        rewards = torch.from_numpy(np.vstack([experience.reward
-                                              for experience in experiences
-                                              if experience is not None])).float().to(self.device)
-        next_states = torch.from_numpy(np.vstack([experience.next_state
-                                                  for experience in experiences
-                                                  if experience is not None])).float().to(self.device)
+        next_states = torch.from_numpy(np.stack([experience.next_state
+                                                 for experience in experiences
+                                                 if experience is not None])).float().to(self.device)
         # Convert done from boolean to int
-        dones = torch.from_numpy(np.vstack([experience.done for
-                                            experience in experiences
-                                            if experience is not None]).astype(np.uint8)).float().to(self.device)
+        dones = torch.from_numpy(np.stack([experience.done for
+                                           experience in experiences
+                                           if experience is not None]).astype(np.uint8)).float().to(self.device)
 
         return (states, actions, rewards, next_states, dones)
 
@@ -170,17 +137,16 @@ class DQNAgent:
     seed (int): random seed
     """
 
-    def __init__(self, state_size, action_size, hyperparams):
+    def __init__(self, state_w, state_h, action_size, hyperparams):
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.hp = hyperparams
-        self.state_size = state_size
         self.action_size = action_size
         # self.seed = random.seed(seed)
         random.seed(self.hp.seed)
         # Initialize Q and Fixed Q networks
-        self.q_network = QNetwork(state_size, action_size, self.hp.seed).to(self.device)
-        self.fixed_network = QNetwork(state_size, action_size, self.hp.seed).to(self.device)
-        self.optimizer = optim.Adam(self.q_network.parameters())
+        self.policy_net = ConvQNetwork(state_w, state_h, action_size, self.hp.seed).to(self.device)
+        self.target_net = ConvQNetwork(state_w, state_h, action_size, self.hp.seed).to(self.device)
+        self.optimizer = optim.Adam(self.policy_net.parameters())
         # Initilize memory
         self.memory = ReplayBuffer(self.hp)
         self.timestep = 0
@@ -206,7 +172,7 @@ class DQNAgent:
 
     def learn(self, experiences):
         """
-        Learn from experience by training the q_network
+        Learn from experience by training the policy_net
 
         Parameters
         ----------
@@ -214,7 +180,7 @@ class DQNAgent:
         """
         states, actions, rewards, next_states, dones = experiences
         # Get the action with max Q value
-        action_values = self.fixed_network.forward(next_states).detach()
+        action_values = self.target_net.forward(next_states.unsqueeze(1)).detach()
         # Notes
         # tensor.max(1)[0] returns the values, tensor.max(1)[1] will return indices
         # unsqueeze operation --> np.reshape
@@ -222,8 +188,9 @@ class DQNAgent:
         max_action_values = action_values.max(1)[0].unsqueeze(1)
 
         # If done just use reward, else update Q_target with discounted action values
-        q_target = rewards + (self.hp.gamma * max_action_values * (1 - dones))
-        q_expected = self.q_network.forward(states).gather(1, actions)
+        q_target = rewards.unsqueeze(1) + (self.hp.gamma * max_action_values * (1 - dones.unsqueeze(1)))
+
+        q_expected = self.policy_net.forward(states.unsqueeze(1)).gather(1, actions.unsqueeze(1))
 
         # Calculate loss
         loss = F.mse_loss(q_expected, q_target)
@@ -234,18 +201,18 @@ class DQNAgent:
         self.optimizer.step()
 
         # Update fixed weights
-        self.updateFixedNetwork(self.q_network, self.fixed_network)
+        self.updateFixedNetwork(self.policy_net, self.target_net)
 
-    def updateFixedNetwork(self, q_network, fixed_network):
+    def updateFixedNetwork(self, policy_net, target_net):
         """
         Update fixed network by copying weights from Q network using TAU param
 
         Parameters
         ----------
-        q_network (PyTorch model): Q network
-        fixed_network (PyTorch model): Fixed target network
+        policy_net (PyTorch model): Q network
+        target_net (PyTorch model): Fixed target network
         """
-        for source_parameters, target_parameters in zip(q_network.parameters(), fixed_network.parameters()):
+        for source_parameters, target_parameters in zip(policy_net.parameters(), target_net.parameters()):
             target_parameters.data.copy_(self.hp.tau * source_parameters.data +
                                          (1.0 - self.hp.tau) * target_parameters.data)
 
@@ -259,31 +226,30 @@ class DQNAgent:
         eps (float): epsilon for epsilon-greedy action selection
         """
         rnd = random.random()
-        choices_remaining = state[:100] == 0
+        choices_remaining = state.flatten() == 0
 
         if rnd < eps:
             return np.random.choice(np.arange(self.action_size), p=choices_remaining/choices_remaining.sum())
         else:
-            state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
+            state = torch.from_numpy(state).float().unsqueeze(0).unsqueeze(1).to(self.device)
             # set the network into evaluation mode
-            self.q_network.eval()
+            self.policy_net.eval()
             with torch.no_grad():
-                action_values = self.q_network.forward(state)
+                action_values = self.policy_net.forward(state)
             # Back to training mode
-            self.q_network.train()
+            self.policy_net.train()
             action_mask = np.invert(choices_remaining)
             action = np.argmax(np.ma.array(action_values.cpu().data.numpy(), mask=action_mask))
-            # action = np.argmax(action_values.cpu().data.numpy())
             return action
 
     def checkpoint(self, filename):
         """
         Saves the current model to load later
         """
-        torch.save(self.q_network.state_dict(), filename)
+        torch.save(self.policy_net.state_dict(), filename)
 
     def load(self, filename):
         """
         Load saved data
         """
-        self.q_network.load_state_dict(torch.load(filename))
+        self.policy_net.load_state_dict(torch.load(filename))

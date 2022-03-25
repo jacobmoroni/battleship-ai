@@ -49,6 +49,7 @@ class BattleshipBoard:
             self.hits_per_ship[guess-1] += 1
             if self.hits_per_ship[guess-1] == self.max_hits_per_ship[guess-1]:
                 self.active_ships[guess-1] = False
+                self.shots[row, col] = guess + 1
                 sunk = True
             return True, True, sunk
 
@@ -108,7 +109,7 @@ class BattleshipBoard:
         """
         resets the game
         """
-        # seed(random_seed)
+        seed(random_seed)
         self.shots[:, :] = 0
         self.ships[:, :] = 0
         self.hits_per_ship[:] = 0

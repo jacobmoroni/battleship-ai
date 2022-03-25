@@ -10,8 +10,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from dqn_battleship import DQNAgent, HyperParameters
-from battleship_rl_wrapper import BattleshipEnvironment
+from dqn_conv_battleship import DQNAgent, HyperParameters
+from battleship_conv_wrapper import BattleshipEnvironment
 
 # HyperParameters
 
@@ -20,7 +20,7 @@ BATCH_SIZE = 64         # Number of experiences to sample from memory
 GAMMA = 0.99            # Discount factor
 TAU = 1e-3              # Soft update parameter for updating fixed q network
 LR = 1e-4               # Q Network learning rate
-UPDATE_EVERY = 4        # How often to update Q network
+UPDATE_EVERY = 10        # How often to update Q network
 MAX_EPISODES = 2000     # Max number of episodes to play
 MAX_STEPS = 100         # Max number of steps that can be taken in an episode
 
@@ -38,9 +38,8 @@ class RLTrainer:
     def __init__(self, hyperparams):
         self.hp = hyperparams
         self.env = BattleshipEnvironment()
-        self.state_size = self.env.state_size
         self.action_size = self.env.num_actions
-        self.dqn_agent = DQNAgent(self.state_size, self.action_size, self.hp)
+        self.dqn_agent = DQNAgent(self.env.state_w, self.env.state_h, self.action_size, self.hp)
         self.env.reset(seed=0)
         self.render_output = None
 
@@ -67,14 +66,14 @@ class RLTrainer:
         Renders a single state
         """
         board_size_dim = self.env.board_size
-        board_size_full = board_size_dim**2
-        board = state[:board_size_full].reshape(board_size_dim, board_size_dim)
+        # board_size_full = board_size_dim**2
+        board = state
         self.render_output.addstr(0, 0, str(board))
         self.render_output.addstr(
-            11, 0, f"Ship Status: {str(state[board_size_full:])}, action: {action}, reward: {reward}, score: {score}")
+            11, 0, f"action: {action}, reward: {reward}, score: {score}")
         self.render_output.refresh()
 
-    def renderRun(self, sleep_time):
+    def renderRun(self):
         """
         Renders a run with the current model
         """
@@ -88,12 +87,12 @@ class RLTrainer:
         state = self.env.reset()
         data = {"action": [],
                 "reward": [],
-                "score": []}
-        output = []
+                "score": [],
+                "ship_state": []}
         # for i in range(100):
         while True:
             # action = i  # self.dqn_agent.act(state)
-            action = self.dqn_agent.act(state)
+            action = self.dqn_agent.selectAction(state)
             next_state, reward, done, _ = self.env.step(action)
             self.dqn_agent.step(state, action, reward, next_state, done)
             state = next_state
@@ -101,14 +100,10 @@ class RLTrainer:
             data['action'].append(action)
             data['reward'].append(reward)
             data['score'].append(score)
-            output.append(
-                f"{state.reshape((self.env.board_size, self.env.board_size))} \n action: {action}, reward: {reward}, score: {score}")
+            # data['ship_state'].append(state[100:])
             try:
                 self.renderState(state, action, reward, score)
-                if sleep_time < 0:
-                    input()
-                else:
-                    sleep(sleep_time)
+                sleep(0.5)
             finally:
                 curses.echo()
                 curses.nocbreak()
@@ -116,7 +111,7 @@ class RLTrainer:
 
             if done:
                 break
-        return data, output
+        return data
 
     def loadAgent(self, file):
         """
@@ -138,14 +133,13 @@ class RLTrainer:
             # from ipdb import set_trace
             # set_trace()
             score = 0
-            actions = np.ones(self.action_size)
             for _ in range(self.hp.max_steps):
-                action = self.dqn_agent.act(state, self.eps)  # , actions)
-                actions[action] = 0
+                action = self.dqn_agent.selectAction(state, self.eps)
                 next_state, reward, done, _ = self.env.step(action)
                 self.dqn_agent.step(state, action, reward, next_state, done)
                 state = next_state
                 score += reward
+                self.dqn_agent.optimizeModel()
                 if done:
                     break
 
@@ -156,7 +150,8 @@ class RLTrainer:
                 #     sys.stdout.flush()
                 #     self.dqn_agent.checkpoint('solved_200.pth')
                 #     break
-
+            if episode % self.hp.target_update_freq == 0:
+                self.dqn_agent.target_net.load_state_dict(self.dqn_agent.policy_net.state_dict())
             self.scores_window.append(score)
             self.scores.append(score)
             loop.set_description(
@@ -174,7 +169,7 @@ if __name__ == '__main__':
     hp.gamma = GAMMA
     hp.tau = TAU
     hp.learning_rate = LR
-    hp.q_update_freq = UPDATE_EVERY
+    hp.target_update_freq = UPDATE_EVERY
     hp.max_episodes = MAX_EPISODES
     hp.max_steps = MAX_STEPS
     # hp.env_solved = ENV_SOLVED
@@ -184,4 +179,4 @@ if __name__ == '__main__':
     hp.seed = 0
 
     trainer = RLTrainer(hp)
-    # trainer.runLoop(hyperparams.max_episodes)
+    trainer.runLoop(hp.max_episodes)

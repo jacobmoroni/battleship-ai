@@ -2,6 +2,7 @@
 Main run file for DQN
 """
 # import sys
+from http.client import ImproperConnectionState
 from time import time, sleep
 from collections import deque
 import curses
@@ -10,13 +11,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from dqn_battleship import DQNAgent, HyperParameters
-from battleship_rl_wrapper import BattleshipEnvironment
+from dqn_battleship3 import DQNAgent, HyperParameters
+from battleship_wrapper3 import BattleshipEnvironment
 
 # HyperParameters
 
 BUFFER_SIZE = int(1e5)  # Replay memory size
-BATCH_SIZE = 64         # Number of experiences to sample from memory
+BATCH_SIZE = 4        # Number of experiences to sample from memory
 GAMMA = 0.99            # Discount factor
 TAU = 1e-3              # Soft update parameter for updating fixed q network
 LR = 1e-4               # Q Network learning rate
@@ -40,7 +41,7 @@ class RLTrainer:
         self.env = BattleshipEnvironment()
         self.state_size = self.env.state_size
         self.action_size = self.env.num_actions
-        self.dqn_agent = DQNAgent(self.state_size, self.action_size, self.hp)
+        self.dqn_agent = DQNAgent(self.state_size, self.state_size, self.action_size, self.hp)
         self.env.reset(seed=0)
         self.render_output = None
 
@@ -74,7 +75,7 @@ class RLTrainer:
             11, 0, f"Ship Status: {str(state[board_size_full:])}, action: {action}, reward: {reward}, score: {score}")
         self.render_output.refresh()
 
-    def renderRun(self, sleep_time):
+    def renderRun(self):
         """
         Renders a run with the current model
         """
@@ -85,15 +86,17 @@ class RLTrainer:
 
         # self.env = BattleshipEnvironment()
         score = 0
-        state = self.env.reset()
+        state = self.env.reset(0)
         data = {"action": [],
                 "reward": [],
-                "score": []}
-        output = []
+                "score": [],
+                "ship_state": []}
+        actions = np.ones(self.action_size)
         # for i in range(100):
         while True:
             # action = i  # self.dqn_agent.act(state)
-            action = self.dqn_agent.act(state)
+            action = self.dqn_agent.act(state)  # , actions=actions)
+            actions[action] = 0
             next_state, reward, done, _ = self.env.step(action)
             self.dqn_agent.step(state, action, reward, next_state, done)
             state = next_state
@@ -101,14 +104,10 @@ class RLTrainer:
             data['action'].append(action)
             data['reward'].append(reward)
             data['score'].append(score)
-            output.append(
-                f"{state.reshape((self.env.board_size, self.env.board_size))} \n action: {action}, reward: {reward}, score: {score}")
+            # data['ship_state'].append(state[100:])
             try:
                 self.renderState(state, action, reward, score)
-                if sleep_time < 0:
-                    input()
-                else:
-                    sleep(sleep_time)
+                sleep(0.5)
             finally:
                 curses.echo()
                 curses.nocbreak()
@@ -116,7 +115,7 @@ class RLTrainer:
 
             if done:
                 break
-        return data, output
+        return data
 
     def loadAgent(self, file):
         """
@@ -133,14 +132,14 @@ class RLTrainer:
         loop = tqdm(total=num_episodes, position=0, leave=False)
 
         for episode in range(1, num_episodes + 1):
-            state = self.env.reset()
+            state = self.env.reset(0)
             # self.env.battleship.printShips()
             # from ipdb import set_trace
             # set_trace()
             score = 0
             actions = np.ones(self.action_size)
             for _ in range(self.hp.max_steps):
-                action = self.dqn_agent.act(state, self.eps)  # , actions)
+                action = self.dqn_agent.act(state, self.eps)
                 actions[action] = 0
                 next_state, reward, done, _ = self.env.step(action)
                 self.dqn_agent.step(state, action, reward, next_state, done)
@@ -184,4 +183,4 @@ if __name__ == '__main__':
     hp.seed = 0
 
     trainer = RLTrainer(hp)
-    # trainer.runLoop(hyperparams.max_episodes)
+    trainer.runLoop(hp.max_episodes)
