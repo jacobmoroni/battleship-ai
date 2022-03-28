@@ -53,6 +53,9 @@ class BattleshipBoard:
                 sunk = True
             return True, True, sunk
 
+    def getShots(self):
+        return self.shots
+
     def printShots(self):
         """
         Prints the current state of the board
