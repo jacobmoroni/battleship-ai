@@ -85,7 +85,7 @@ class RLTrainer:
 
         # self.env = BattleshipEnvironment()
         score = 0
-        state = self.env.reset()
+        state = self.env.reset(0)
         data = {"action": [],
                 "reward": [],
                 "score": []}
@@ -133,10 +133,7 @@ class RLTrainer:
         loop = tqdm(total=num_episodes, position=0, leave=False)
 
         for episode in range(1, num_episodes + 1):
-            state = self.env.reset()
-            # self.env.battleship.printShips()
-            # from ipdb import set_trace
-            # set_trace()
+            state = self.env.reset(0)
             score = 0
             actions = np.ones(self.action_size)
             for _ in range(self.hp.max_steps):

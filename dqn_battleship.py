@@ -212,6 +212,12 @@ class DQNAgent:
         ----------
         experiences (array_like): List of experiences sampled from agent's memory
         """
+        # TODO: I had a thought for this step or somewhere around here. Maybe try to implement an explore function
+        #  where you do very similar to this function, but you step forward with every possible action for a single state
+        #  then set the action values + rewards for q_target and I think q_expected is just the same values over and over
+        #  compare against each state.
+        # TODO: implement this here and in dqn_battleship 3 (along with the new reward scheme for fires near hits)
+        # (that is the one with a 2d state with convolutional network but still 1d action space) see if this works for either
         states, actions, rewards, next_states, dones = experiences
         # Get the action with max Q value
         action_values = self.fixed_network.forward(next_states).detach()
@@ -219,6 +225,7 @@ class DQNAgent:
         # tensor.max(1)[0] returns the values, tensor.max(1)[1] will return indices
         # unsqueeze operation --> np.reshape
         # Here, we make it from torch.Size([64]) -> torch.Size([64, 1])
+        # TODO: apply mask here so it picks the max available value? Not sure how necessary this is
         max_action_values = action_values.max(1)[0].unsqueeze(1)
 
         # If done just use reward, else update Q_target with discounted action values
